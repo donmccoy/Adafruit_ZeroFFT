@@ -67,6 +67,20 @@ extern "C" {
 /**************************************************************************/
 extern int ZeroFFT(q15_t *source, uint16_t length);
 
+/**************************************************************************/
+/*!
+    @brief  run an FFT on an int16_t array. Note that this is run in place.
+    @param source the data to FFT
+    @param length the length of the data. This must be a power of 2 and less
+   than or equal to ZERO_FFT_MAX
+    @return 0 on success, -1 on failure
+    @note The FFT is run in place on the data. A hanning window is applied to
+   the input data. The magnitude of the (complex valued) result is computed
+   and returned.
+*/
+/**************************************************************************/
+extern int ZeroFFTPowerSpectrum(q15_t *source, uint16_t length);
+
 extern const q15_t window_hanning_16[];   ///< a hanning window of length 16
 extern const q15_t window_hanning_32[];   ///< a hanning window of length 32
 extern const q15_t window_hanning_64[];   ///< a hanning window of length 64

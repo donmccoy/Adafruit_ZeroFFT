@@ -174,7 +174,29 @@ static inline void applyWindow(q15_t *src, const q15_t *window, uint16_t len) {
   }
 }
 
-int ZeroFFT(q15_t *source, uint16_t length) {
+// "Gap" was a NASA engineer responsible for this algorithm for computing 
+// the integer square root (which is faster than using floating point).
+// Based on an article by Jack Crenshaw in Embedded Systems Programming,
+// [“Square Roots are Simple?” November 1991, p. 30]:
+//   	https://www.embedded.com/integer-square-roots/
+// The actual code was copied from here:
+//		https://gist.github.com/foobaz/3287f153d125277eefea
+static uint16_t gapsqrt32(uint32_t a) {
+  uint32_t rem = 0, root = 0;
+
+  for (int i = 32 / 2; i > 0; i--) {
+    root <<= 1;
+    rem = (rem << 2) | (a >> (32 - 2));
+    a <<= 2;
+    if (root < rem) {
+      rem -= root | 1;
+      root += 2;
+    }
+  }
+  return root >> 1;
+}
+
+static int ZeroFFT_base(q15_t *source, uint16_t length) {
   uint16_t twidCoefModifier;
   uint16_t bitRevFactor;
   uint16_t *pBitRevTable;
@@ -309,13 +331,39 @@ int ZeroFFT(q15_t *source, uint16_t length) {
                            twidCoefModifier);
   arm_bitreversal_q15(scratchData, length, bitRevFactor, pBitRevTable);
 
-  pSrc = source;
-  pOut = scratchData;
+  return 0;
+}
+
+int ZeroFFT(q15_t *source, uint16_t length) {
+  int result = ZeroFFT_base(source, length);
+  if (result)
+      return result;
+
+  q15_t *pSrc = source;
+  q15_t *pOut = scratchData;
   for (int i = 0; i < length; i++) {
     q15_t val = *pOut++;
     uint32_t v = abs(val);
     *pSrc++ = v;
     pOut++; // discard imaginary phase val
+  }
+
+  return 0;
+}
+
+int ZeroFFTPowerSpectrum(q15_t *source, uint16_t length) {
+  int result = ZeroFFT_base(source, length);
+  if (result)
+      return result;
+
+  q15_t *pSrc = source;
+  q15_t *pOut = scratchData;
+  for (int i = 0; i < length; i++) {
+    q15_t a = *pOut++;		// real part
+    q15_t b = *pOut++;		// imaginary part
+    // compute the magnitude of the complex vector, discarding the phase
+    q15_t v = (q15_t)gapsqrt32((q31_t)a * a + (q31_t)b * b);
+    *pSrc++ = v;
   }
 
   return 0;
